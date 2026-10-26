@@ -1,0 +1,38 @@
+JUSTIFICACIÓN DE PATRONES DE DISEÑO Y ARQUITECTURA
+
+PATRÓN STRATEGY (generación de contenido mediante LLM)
+ 
+Usamos el patrón Strategy a través de la interfaz LLM porque nos permite
+cambiar entre distintos proveedores o modelos de inteligencia artificial
+(Gemini, OpenAI, ModeloLocal) sin tocar la lógica de la clase IA ni
+su método +generarCuerpoRespuesta.
+ 
+En el diseño, IA funciona como contexto: guarda el modelo en el atributo
+-modelo: LLM y lo puede cambiar en tiempo de ejecución con +setLLM(m: LLM).
+Cada proveedor es una clase concreta que implementa la interfaz LLM con su
+propio método +generarCuerpo(p: Pregunta): String.
+ 
+Esto nos da:
+ 
+- Flexibilidad: podemos elegir qué modelo usar según la necesidad.
+- Bajo acoplamiento: IA depende de la interfaz LLM y no de un
+  proveedor en particular.
+- Escalabilidad: respeta el Principio Abierto/Cerrado.
+ 
+Por ejemplo, si más adelante queremos integrar un proveedor nuevo como
+Anthropic, solo tenemos que crear una clase que implemente LLM. No hace
+falta modificar ninguna de las clases que ya existen en el dominio.
+ 
+ 
+ABSTRACCIÓN Y POLIMORFISMO EN LA AUTORÍA (Autor)
+ 
+Diseñamos la clase abstracta Autor como generalización de Usuario e IA,
+para abstraer quién emite una respuesta dentro de la plataforma. Así, la
+entidad Respuesta se relaciona con una sola abstracción (Autor) y puede
+tratar de la misma forma a los usuarios humanos y a los agentes automáticos,
+sin generar un acoplamiento rígido.
+ 
+Además, dejamos el método +crearRespuesta(p: Pregunta, cuerpo: String): Respuesta
+en la superclase Autor. De esa manera evitamos repetir en cada subclase la
+lógica de crear la respuesta y vincularla con la pregunta.
+ 
