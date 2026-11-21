@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro en memoria · QA Platform</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <main>
+    <h1>Registro de usuario (en memoria)</h1>
+    <p class="nota">Prueba temporal contra <code>POST /api/usuarios</code> sin base de datos.</p>
+
+    <form id="form-registro" novalidate>
+      <div class="campo">
+        <label for="correo">Correo</label>
+        <input id="correo" name="correo" type="email" autocomplete="email"
+               aria-describedby="error-correo">
+        <p class="error" id="error-correo"></p>
+      </div>
+
+      <div class="campo">
+        <label for="password">Contraseña</label>
+        <input id="password" name="password" type="password"
+               autocomplete="new-password" aria-describedby="error-password">
+        <p class="error" id="error-password"></p>
+      </div>
+
+      <button type="submit">Registrarme</button>
+    </form>
+
+    <section aria-live="polite">
+      <h2>Última respuesta</h2>
+      <p id="estado" class="estado">Todavía no se envió nada.</p>
+      <pre id="respuesta"></pre>
+    </section>
+
+    <section>
+      <h2>Usuarios en memoria</h2>
+      <pre id="lista-usuarios">[]</pre>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/registro.js') }}"></script>
+</body>
+</html>

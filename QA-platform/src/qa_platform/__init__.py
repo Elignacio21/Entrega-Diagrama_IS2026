@@ -19,7 +19,12 @@ def create_app(config_class=Config):
     # (lo necesitará Alembic para autogenerar migraciones).
     from qa_platform import models  # noqa: F401
     from qa_platform.api.health import health_bp
+    from qa_platform.api.usuarios import usuarios_bp
+    from qa_platform.web.paginas import web_bp
+
 
     app.register_blueprint(health_bp)
+    app.register_blueprint(usuarios_bp)
+    app.register_blueprint(web_bp)
 
     return app
