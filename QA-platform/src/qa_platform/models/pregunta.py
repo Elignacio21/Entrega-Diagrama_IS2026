@@ -8,6 +8,7 @@ from qa_platform.errors import ErrorValidacion
 from qa_platform.models.categoria import Categoria
 from qa_platform.models.etiqueta import Etiqueta
 from qa_platform.models.publicacion import Publicacion
+from qa_platform.models.respuesta import Respuesta
 
 if TYPE_CHECKING:
     # Solo para anotaciones: usuario.py importa a este módulo, y así se evita
@@ -22,9 +23,9 @@ def _es_texto_valido(valor) -> bool:
 class Pregunta(Publicacion):
     """Pregunta publicada en la plataforma.
 
-    Tiene un autor (Usuario), exactamente una Categoria (obligatoria) y cero
-    o más Etiquetas. Si los datos no son válidos, no se crea y se lanza
-    ErrorValidacion con TODOS los errores encontrados.
+    Tiene un autor (Usuario), exactamente una Categoria (obligatoria), cero
+    o más Etiquetas y cero o más Respuestas. Si los datos no son válidos, no
+    se crea y se lanza ErrorValidacion con TODOS los errores encontrados.
     """
 
     def __init__(
@@ -55,6 +56,7 @@ class Pregunta(Publicacion):
         self._etiquetas: list[Etiqueta] = []
         for etiqueta in etiquetas:
             self.agregar_etiqueta(etiqueta)
+        self._respuestas: list[Respuesta] = []
 
     @staticmethod
     def validar_textos(titulo, cuerpo) -> dict[str, str]:
@@ -92,6 +94,26 @@ class Pregunta(Publicacion):
             raise ErrorValidacion({"etiquetas": "Cada etiqueta debe ser una Etiqueta"})
         if etiqueta not in self._etiquetas:
             self._etiquetas.append(etiqueta)
+
+    @property
+    def respuestas(self) -> tuple[Respuesta, ...]:
+        """Respuestas de la pregunta (solo lectura; 0..*).
+
+        Se agregan con agregar_respuesta, normalmente a través de
+        Autor.crearRespuesta().
+        """
+        return tuple(self._respuestas)
+
+    def agregar_respuesta(self, respuesta: Respuesta) -> None:
+        if not isinstance(respuesta, Respuesta):
+            raise ErrorValidacion({"respuesta": "Debe ser una Respuesta"})
+        # Toda respuesta pertenece a UNA única pregunta: la que declara ella.
+        if respuesta.pregunta is not self:
+            raise ErrorValidacion(
+                {"respuesta": "La respuesta pertenece a otra pregunta"}
+            )
+        if respuesta not in self._respuestas:
+            self._respuestas.append(respuesta)
 
     def __repr__(self):
         return f"<Pregunta {self.titulo!r}>"
