@@ -1,16 +1,30 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from qa_platform.errors import ErrorValidacion
 from qa_platform.models.categoria import Categoria
 from qa_platform.models.etiqueta import Etiqueta
 from qa_platform.models.publicacion import Publicacion
 
+if TYPE_CHECKING:
+    # Solo para anotaciones: usuario.py importa a este módulo, y así se evita
+    # un import circular.
+    from qa_platform.models.usuario import Usuario
+
+
+def _es_texto_valido(valor) -> bool:
+    return isinstance(valor, str) and bool(valor.strip())
+
 
 class Pregunta(Publicacion):
     """Pregunta publicada en la plataforma.
 
-    Tiene exactamente una Categoria (obligatoria) y cero o más Etiquetas.
+    Tiene un autor (Usuario), exactamente una Categoria (obligatoria) y cero
+    o más Etiquetas. Si los datos no son válidos, no se crea y se lanza
+    ErrorValidacion con TODOS los errores encontrados.
     """
 
     def __init__(
@@ -18,15 +32,43 @@ class Pregunta(Publicacion):
         titulo: str,
         cuerpo: str,
         categoria: Categoria,
+        autor: Usuario,
         etiquetas: Iterable[Etiqueta] = (),
         fecha: datetime | None = None,
     ):
-        super().__init__(cuerpo, fecha)
-        self.titulo = titulo
+        etiquetas = tuple(etiquetas or ())
+
+        errores = self.validar_textos(titulo, cuerpo)
+        if not isinstance(categoria, Categoria):
+            errores["categoria"] = "La categoría es obligatoria"
+        if autor is None:
+            errores["autor"] = "La pregunta debe tener un autor"
+        if not all(isinstance(etiqueta, Etiqueta) for etiqueta in etiquetas):
+            errores["etiquetas"] = "Cada etiqueta debe ser una Etiqueta"
+        if errores:
+            raise ErrorValidacion(errores)
+
+        super().__init__(cuerpo.strip(), fecha)
+        self.titulo = titulo.strip()
+        self.autor = autor
         self.categoria = categoria  # pasa por el setter, que valida
         self._etiquetas: list[Etiqueta] = []
         for etiqueta in etiquetas:
             self.agregar_etiqueta(etiqueta)
+
+    @staticmethod
+    def validar_textos(titulo, cuerpo) -> dict[str, str]:
+        """Errores del título y el cuerpo (vacío si ambos son válidos).
+
+        Es estática para que el servicio pueda reutilizarla y juntar sus
+        errores con los de otros campos antes de crear la pregunta.
+        """
+        errores: dict[str, str] = {}
+        if not _es_texto_valido(titulo):
+            errores["titulo"] = "El título es obligatorio"
+        if not _es_texto_valido(cuerpo):
+            errores["cuerpo"] = "El cuerpo es obligatorio"
+        return errores
 
     @property
     def categoria(self) -> Categoria:
