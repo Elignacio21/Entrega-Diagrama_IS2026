@@ -7,6 +7,7 @@ from qa_platform.services.respuesta_service import (
     crear_respuesta,
     listar_respuestas,
 )
+from qa_platform.services.voto_service import votar_respuesta
 
 respuestas_bp = Blueprint(
     "respuestas", __name__, url_prefix="/api/preguntas/<int:pregunta_id>/respuestas"
@@ -32,7 +33,6 @@ def registrar_respuesta(pregunta_id):
     if not isinstance(datos, dict):
         datos = {}
 
-    # La fecha y esAceptada no se leen del cliente: los fija el sistema.
     try:
         respuesta = crear_respuesta(
             pregunta_id=pregunta_id,
@@ -78,6 +78,7 @@ def marcar_respuesta_aceptada(pregunta_id, respuesta_id):
         return {"errores": error.errores}, 400
 
     return _a_diccionario(respuesta), 200
+
 
 @respuestas_bp.post("/<int:respuesta_id>/votar")
 def registrar_voto_respuesta(pregunta_id, respuesta_id):

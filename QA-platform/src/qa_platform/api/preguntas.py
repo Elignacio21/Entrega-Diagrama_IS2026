@@ -1,11 +1,15 @@
 from flask import Blueprint, request
 
 from qa_platform.errors import ErrorNoEncontrado, ErrorValidacion
+from qa_platform.services.catalogo_service import listar_categorias
 from qa_platform.services.pregunta_service import crear_pregunta, listar_preguntas
 from qa_platform.services.voto_service import votar_pregunta
 
 preguntas_bp = Blueprint("preguntas", __name__, url_prefix="/api/preguntas")
 
+@preguntas_bp.post("/<int:pregunta_id>/votar")
+def registrar_voto_pregunta(pregunta_id):
+    """Adaptador HTTP para votar una pregunta."""
 
 def _a_diccionario(pregunta) -> dict:
     return {
@@ -33,8 +37,10 @@ def registrar_pregunta():
             titulo=datos.get("titulo"),
             cuerpo=datos.get("cuerpo"),
             categoria=datos.get("categoria"),
-            etiquetas=datos.get("etiquetas"),
+            etiquetas=datos.get("etiquetas", []),
         )
+    except ErrorNoEncontrado as error:
+        return {"errores": error.errores}, 404
     except ErrorValidacion as error:
         return {"errores": error.errores}, 400
 
@@ -48,6 +54,11 @@ def obtener_preguntas():
         "total": len(preguntas),
         "preguntas": [_a_diccionario(p) for p in preguntas],
     }, 200
+
+
+@preguntas_bp.get("/categorias")
+def obtener_categorias():
+    return {"categorias": [categoria.nombre for categoria in listar_categorias()]}, 200
 
 
 @preguntas_bp.post("/<int:pregunta_id>/votar")
