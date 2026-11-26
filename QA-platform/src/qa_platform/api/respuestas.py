@@ -1,5 +1,6 @@
 from flask import Blueprint, request
 
+from qa_platform.services.voto_service import votar_respuesta
 from qa_platform.errors import ErrorNoEncontrado, ErrorValidacion
 from qa_platform.services.respuesta_service import (
     aceptar_respuesta,

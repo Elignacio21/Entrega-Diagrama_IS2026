@@ -1,8 +1,11 @@
-from flask import request
+from flask import Blueprint, request
 
 from qa_platform.errors import ErrorNoEncontrado, ErrorValidacion
+from qa_platform.services.catalogo_service import listar_categorias
+from qa_platform.services.pregunta_service import crear_pregunta, listar_preguntas
 from qa_platform.services.voto_service import votar_pregunta
 
+preguntas_bp = Blueprint("preguntas", __name__, url_prefix="/api/preguntas")
 
 @preguntas_bp.post("/<int:pregunta_id>/votar")
 def registrar_voto_pregunta(pregunta_id):
@@ -14,20 +17,20 @@ def _a_diccionario(pregunta) -> dict:
         "titulo": pregunta.titulo,
         "cuerpo": pregunta.cuerpo,
         "fecha": pregunta.fecha.isoformat(),
-        "categoria": pregunta.categoria.nombre,
-        "etiquetas": [etiqueta.nombre for etiqueta in pregunta.etiquetas],
         "autor_id": pregunta.autor.identificacion,
+        "categoria": pregunta.categoria.nombre,
+        "etiquetas": [e.nombre for e in pregunta.etiquetas],
         "puntuacion": pregunta.calcularPuntuacion(),
     }
 
 
-@preguntas_bp.post("/preguntas")
+@preguntas_bp.post("")
 def registrar_pregunta():
-    """Adaptador HTTP: traduce JSON <-> dominio. Las reglas viven en el modelo."""
     datos = request.get_json(silent=True)
     if not isinstance(datos, dict):
         datos = {}
 
+    # La fecha y el identificador no se leen del cliente: los fija el sistema.
     try:
         pregunta = crear_pregunta(
             autor_id=datos.get("autor_id"),
@@ -44,12 +47,12 @@ def registrar_pregunta():
     return _a_diccionario(pregunta), 201
 
 
-@preguntas_bp.get("/preguntas")
+@preguntas_bp.get("")
 def obtener_preguntas():
     preguntas = listar_preguntas()
     return {
         "total": len(preguntas),
-        "preguntas": [_a_diccionario(pregunta) for pregunta in preguntas],
+        "preguntas": [_a_diccionario(p) for p in preguntas],
     }, 200
 
 
