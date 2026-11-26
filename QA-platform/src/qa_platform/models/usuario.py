@@ -6,14 +6,16 @@ from typing import TYPE_CHECKING
 from qa_platform.errors import ErrorValidacion
 from qa_platform.extensions import db
 from qa_platform.models.autor import Autor
-from qa_platform.models.enums import RolUsuario
+from qa_platform.models.enums import RolUsuario, TipoVoto
 from qa_platform.models.pregunta import Pregunta
 from qa_platform.models.respuesta import Respuesta
+from qa_platform.models.voto import Voto
 
 if TYPE_CHECKING:
     # Solo para anotaciones de tipo.
     from qa_platform.models.categoria import Categoria
     from qa_platform.models.etiqueta import Etiqueta
+    from qa_platform.models.publicacion import Publicacion
 
 
 class Usuario(Autor):
@@ -76,6 +78,19 @@ class Usuario(Autor):
                 {"autor": "Solo el autor de la pregunta puede aceptar una respuesta"}
             )
         r.marcarAceptada()
+
+    def votar(self, p: Publicacion, tipo: TipoVoto) -> Voto:
+        """Emite un voto POSITIVO o NEGATIVO sobre una publicación (Pregunta o Respuesta)."""
+        if p is None:
+            raise ErrorValidacion({"publicacion": "La publicación es obligatoria"})
+        if not isinstance(tipo, TipoVoto):
+            raise ErrorValidacion({"tipo": "El tipo de voto debe ser POSITIVO o NEGATIVO"})
+        if any(v.usuario is self for v in p.votos):
+            raise ErrorValidacion({"voto": "El usuario ya votó esta publicación"})
+
+        voto = Voto(usuario=self, publicacion=p, tipo=tipo)
+        p.agregar_voto(voto)
+        return voto
 
     def __repr__(self):
         return f"<Usuario {self.correo}>"
