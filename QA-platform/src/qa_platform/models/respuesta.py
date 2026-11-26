@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from qa_platform.errors import ErrorValidacion
+from qa_platform.extensions import db
 from qa_platform.models.publicacion import Publicacion
 
 if TYPE_CHECKING:
@@ -33,6 +34,32 @@ class Respuesta(Publicacion):
     que además la registra en la pregunta.
     """
 
+    __tablename__ = "respuesta"
+
+    identificacion = db.Column(
+        db.Integer,
+        db.ForeignKey("publicacion.identificacion"),
+        primary_key=True,
+    )
+    pregunta_id = db.Column(
+        db.Integer, db.ForeignKey("pregunta.identificacion"), nullable=False
+    )
+    # Apunta a `autor` (la tabla base) y no a `usuario`: así sirve para
+    # respuestas escritas tanto por un Usuario como por una IA.
+    autor_id = db.Column(
+        db.Integer, db.ForeignKey("autor.identificacion"), nullable=False
+    )
+    # La columna se llama es_aceptada en la base; en Python se lee con la
+    # propiedad esAceptada (solo lectura).
+    _esAceptada = db.Column("es_aceptada", db.Boolean, nullable=False, default=False)
+
+    pregunta = db.relationship(
+        "Pregunta", back_populates="_respuestas", foreign_keys=[pregunta_id]
+    )
+    autor = db.relationship("Autor", foreign_keys=[autor_id])
+
+    __mapper_args__ = {"polymorphic_identity": "respuesta"}
+
     def __init__(
         self,
         cuerpo: str,
@@ -51,12 +78,10 @@ class Respuesta(Publicacion):
             raise ErrorValidacion(errores)
 
         super().__init__(cuerpo.strip(), fecha)
-        self._esAceptada: bool = False
+        self._esAceptada = False
         self.pregunta = pregunta
         self.autor = autor
-        # Lo asigna el servicio al guardarla (igual que con las preguntas).
-        # Mientras no esté guardada vale None.
-        self.identificacion: int | None = None
+        # Ya NO se hace `self.identificacion = None`: lo asigna la base al guardar.
 
     @property
     def esAceptada(self) -> bool:

@@ -1,4 +1,7 @@
+from sqlalchemy.exc import IntegrityError
+
 from qa_platform.errors import ErrorNoEncontrado, ErrorValidacion
+from qa_platform.extensions import db
 from qa_platform.models.enums import TipoVoto
 from qa_platform.models.publicacion import Publicacion
 from qa_platform.services.pregunta_service import buscar_pregunta
@@ -21,11 +24,7 @@ def _buscar_respuesta_en_pregunta(pregunta, respuesta_id):
     if pregunta is None:
         return None
     return next(
-        (
-            r
-            for r in pregunta.respuestas
-            if getattr(r, "identificacion", None) == respuesta_id
-        ),
+        (r for r in pregunta.respuestas if r.identificacion == respuesta_id),
         None,
     )
 
@@ -39,7 +38,16 @@ def _emitir_voto(publicacion: Publicacion, usuario_id, tipo):
         raise ErrorValidacion({"autor_id": "El usuario no está registrado"})
 
     tipo_voto = _resolver_tipo_voto(tipo)
-    return usuario.votar(publicacion, tipo_voto)
+    voto = usuario.votar(publicacion, tipo_voto)
+    db.session.add(voto)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Carrera entre dos votos del mismo usuario: lo frena la restricción
+        # UNIQUE (usuario_id, publicacion_id) de la tabla voto.
+        db.session.rollback()
+        raise ErrorValidacion({"voto": "El usuario ya votó esta publicación"}) from None
+    return voto
 
 
 def votar_pregunta(pregunta_id, usuario_id, tipo):

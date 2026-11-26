@@ -1,4 +1,7 @@
+from sqlalchemy.exc import SQLAlchemyError
+
 from qa_platform.errors import ErrorNoEncontrado, ErrorValidacion
+from qa_platform.extensions import db
 from qa_platform.models.respuesta import Respuesta
 from qa_platform.services.pregunta_service import buscar_pregunta
 from qa_platform.services.usuario_service import buscar_usuario
@@ -19,13 +22,13 @@ def listar_respuestas(pregunta_id) -> list[Respuesta]:
 def crear_respuesta(pregunta_id, autor_id, cuerpo) -> Respuesta:
     """Registra la respuesta de un usuario a una pregunta.
 
-- pregunta_id: identificacion de una Pregunta existente.
-- autor_id: identificacion de un Usuario registrado.
-- cuerpo: texto de la respuesta.
+    - pregunta_id: identificacion de una Pregunta existente.
+    - autor_id: identificacion de un Usuario registrado.
+    - cuerpo: texto de la respuesta.
 
     La fecha la fija el sistema y la respuesta nace sin aceptar. Las reglas
     de la respuesta viven en el modelo: acá solo se buscan la pregunta y el
-    autor, y se delega en autor.crearRespuesta().
+    autor, se delega en autor.crearRespuesta() y se guarda.
 
     Lanza ErrorNoEncontrado si la pregunta no existe, y ErrorValidacion con
     todos los errores encontrados si el autor o el cuerpo no son válidos.
@@ -43,9 +46,13 @@ def crear_respuesta(pregunta_id, autor_id, cuerpo) -> Respuesta:
     if errores:
         raise ErrorValidacion(errores)
 
-    respuesta = autor.crearRespuesta(pregunta, cuerpo)
-    if getattr(respuesta, "identificacion", None) is None:
-        respuesta.identificacion = len(pregunta.respuestas)
+    try:
+        respuesta = autor.crearRespuesta(pregunta, cuerpo)
+        db.session.add(respuesta)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise
     return respuesta
 
 
@@ -55,8 +62,10 @@ def aceptar_respuesta(pregunta_id, respuesta_id, usuario_id) -> Respuesta:
     if pregunta is None:
         raise ErrorNoEncontrado({"pregunta": "La pregunta no existe"})
 
+    # Se busca DENTRO de las respuestas de la pregunta: así una respuesta de
+    # otra pregunta no se puede aceptar por esta ruta.
     respuesta = next(
-        (r for r in pregunta.respuestas if getattr(r, "identificacion", None) == respuesta_id),
+        (r for r in pregunta.respuestas if r.identificacion == respuesta_id),
         None,
     )
     if respuesta is None:
@@ -66,5 +75,13 @@ def aceptar_respuesta(pregunta_id, respuesta_id, usuario_id) -> Respuesta:
     if usuario is None:
         raise ErrorValidacion({"autor": "El usuario no está registrado"})
 
-    usuario.aceptarRespuesta(respuesta)
+    try:
+        usuario.aceptarRespuesta(respuesta)
+        db.session.commit()
+    except ErrorValidacion:
+        db.session.rollback()
+        raise
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise
     return respuesta

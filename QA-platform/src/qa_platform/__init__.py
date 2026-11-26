@@ -1,3 +1,4 @@
+import click
 from flask import Flask
 
 from qa_platform.config import Config
@@ -16,7 +17,7 @@ def create_app(config_class=Config):
     db.init_app(app)
 
     # Importamos los modelos para que SQLAlchemy conozca el metadata
-    # (lo necesitará Alembic para autogenerar migraciones).
+    # (lo necesita Alembic para autogenerar migraciones).
     from qa_platform import models  # noqa: F401
     from qa_platform.api.health import health_bp
     from qa_platform.api.preguntas import preguntas_bp
@@ -29,5 +30,13 @@ def create_app(config_class=Config):
     app.register_blueprint(preguntas_bp)
     app.register_blueprint(respuestas_bp)
     app.register_blueprint(web_bp)
+
+    @app.cli.command("sembrar-categorias")
+    def sembrar_categorias_comando():
+        """Carga las categorías iniciales (se puede ejecutar varias veces)."""
+        from qa_platform.services.catalogo_service import sembrar_categorias
+
+        sembrar_categorias()
+        click.echo("Categorías cargadas.")
 
     return app

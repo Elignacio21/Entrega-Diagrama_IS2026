@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from qa_platform.errors import ErrorValidacion
+from qa_platform.extensions import db
 from qa_platform.models.categoria import Categoria
 from qa_platform.models.etiqueta import Etiqueta
 from qa_platform.models.publicacion import Publicacion
@@ -20,6 +21,25 @@ def _es_texto_valido(valor) -> bool:
     return isinstance(valor, str) and bool(valor.strip())
 
 
+# Tabla intermedia de la relación muchos-a-muchos Pregunta <-> Etiqueta.
+# No necesita clase: SQLAlchemy la maneja solo a través de `secondary`.
+pregunta_etiqueta = db.Table(
+    "pregunta_etiqueta",
+    db.Column(
+        "pregunta_id",
+        db.Integer,
+        db.ForeignKey("pregunta.identificacion"),
+        primary_key=True,
+    ),
+    db.Column(
+        "etiqueta_id",
+        db.Integer,
+        db.ForeignKey("etiqueta.id"),
+        primary_key=True,
+    ),
+)
+
+
 class Pregunta(Publicacion):
     """Pregunta publicada en la plataforma.
 
@@ -27,6 +47,36 @@ class Pregunta(Publicacion):
     o más Etiquetas y cero o más Respuestas. Si los datos no son válidos, no
     se crea y se lanza ErrorValidacion con TODOS los errores encontrados.
     """
+
+    __tablename__ = "pregunta"
+
+    identificacion = db.Column(
+        db.Integer,
+        db.ForeignKey("publicacion.identificacion"),
+        primary_key=True,
+    )
+    titulo = db.Column(db.String(255), nullable=False)
+    autor_id = db.Column(
+        db.Integer, db.ForeignKey("usuario.identificacion"), nullable=False
+    )
+    categoria_id = db.Column(
+        db.Integer, db.ForeignKey("categoria.id"), nullable=False
+    )
+
+    autor = db.relationship("Usuario", foreign_keys=[autor_id])
+    # La categoría se expone con la propiedad `categoria` (más abajo), que valida.
+    _categoria = db.relationship("Categoria")
+    _etiquetas = db.relationship("Etiqueta", secondary=pregunta_etiqueta)
+    # Hay que indicar foreign_keys: Respuesta y Pregunta comparten la tabla base
+    # `publicacion`, y SQLAlchemy no puede adivinar por cuál FK unirlas.
+    _respuestas = db.relationship(
+        "Respuesta",
+        back_populates="pregunta",
+        foreign_keys="Respuesta.pregunta_id",
+        order_by="Respuesta.identificacion",
+    )
+
+    __mapper_args__ = {"polymorphic_identity": "pregunta"}
 
     def __init__(
         self,
@@ -53,13 +103,10 @@ class Pregunta(Publicacion):
         self.titulo = titulo.strip()
         self.autor = autor
         self.categoria = categoria  # pasa por el setter, que valida
-        self._etiquetas: list[Etiqueta] = []
         for etiqueta in etiquetas:
             self.agregar_etiqueta(etiqueta)
-        self._respuestas: list[Respuesta] = []
-        # Lo asigna el servicio al guardarla (igual que con los usuarios).
-        # Mientras no esté guardada vale None.
-        self.identificacion: int | None = None
+        # Ya NO se hace `self._etiquetas = []`, `self._respuestas = []` ni
+        # `self.identificacion = None`: son relaciones / columnas del ORM.
 
     @staticmethod
     def validar_textos(titulo, cuerpo) -> dict[str, str]:

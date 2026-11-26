@@ -1,18 +1,20 @@
-from itertools import count
+from sqlalchemy.exc import SQLAlchemyError
 
 from qa_platform.errors import ErrorValidacion
-from qa_platform.models.etiqueta import Etiqueta
+from qa_platform.extensions import db
 from qa_platform.models.pregunta import Pregunta
-from qa_platform.services.catalogo_service import buscar_categoria
+from qa_platform.services.catalogo_service import (
+    buscar_categoria,
+    obtener_o_crear_etiqueta,
+)
 from qa_platform.services.usuario_service import buscar_usuario
-
-_preguntas_en_memoria: list[Pregunta] = []
-_siguiente_id = count(start=1)
 
 
 def listar_preguntas() -> list[Pregunta]:
-    """Devuelve las preguntas guardadas en memoria."""
-    return list(_preguntas_en_memoria)
+    """Devuelve las preguntas guardadas en la base."""
+    return list(
+        db.session.scalars(db.select(Pregunta).order_by(Pregunta.identificacion))
+    )
 
 
 def buscar_pregunta(pregunta_id) -> Pregunta | None:
@@ -20,24 +22,19 @@ def buscar_pregunta(pregunta_id) -> Pregunta | None:
     # bool es un subtipo de int en Python: True == 1, y no debe valer como id.
     if isinstance(pregunta_id, bool) or not isinstance(pregunta_id, int):
         return None
-    for pregunta in _preguntas_en_memoria:
-        if pregunta.identificacion == pregunta_id:
-            return pregunta
-    return None
+    return db.session.get(Pregunta, pregunta_id)
 
 
 def limpiar_preguntas() -> None:
-    """Limpia los datos en memoria y reinicia los identificadores."""
-    global _siguiente_id
-    _preguntas_en_memoria.clear()
-    _siguiente_id = count(start=1)
+    """Se mantiene solo para no romper tests viejos (ver usuario_service)."""
 
 
-def _convertir_etiquetas(nombres) -> tuple[list[Etiqueta], str | None]:
-    """Convierte una lista de textos en Etiquetas (minúsculas, sin espacios).
+def _normalizar_etiquetas(nombres) -> tuple[list[str], str | None]:
+    """Convierte una lista de textos en nombres de etiqueta (minúsculas, sin repetidos).
 
-    Devuelve (etiquetas, mensaje_de_error). Si no se envía nada, no hay
-    etiquetas: son opcionales.
+    Devuelve (nombres, mensaje_de_error). Si no se envía nada, no hay
+    etiquetas: son opcionales. Todavía NO toca la base: las etiquetas se
+    crean recién cuando el resto de los datos ya fue validado.
     """
     if nombres is None:
         return [], None
@@ -48,11 +45,11 @@ def _convertir_etiquetas(nombres) -> tuple[list[Etiqueta], str | None]:
     if not es_lista_de_textos:
         return [], "Las etiquetas deben ser una lista de textos no vacíos"
 
-    return [Etiqueta(nombre.strip().lower()) for nombre in nombres], None
+    return list(dict.fromkeys(nombre.strip().lower() for nombre in nombres)), None
 
 
 def crear_pregunta(autor_id, titulo, cuerpo, categoria, etiquetas=None) -> Pregunta:
-    """Valida los datos, crea la pregunta del usuario y la guarda en memoria.
+    """Valida los datos, crea la pregunta del usuario y la guarda en la base.
 
     - autor_id: identificacion de un Usuario registrado.
     - categoria: nombre de una categoría del catálogo.
@@ -78,20 +75,26 @@ def crear_pregunta(autor_id, titulo, cuerpo, categoria, etiquetas=None) -> Pregu
             else "La categoría es obligatoria"
         )
 
-    lista_etiquetas, error_etiquetas = _convertir_etiquetas(etiquetas)
+    nombres_etiquetas, error_etiquetas = _normalizar_etiquetas(etiquetas)
     if error_etiquetas:
         errores["etiquetas"] = error_etiquetas
 
     if errores:
         raise ErrorValidacion(errores)
 
-    pregunta = autor.generarPregunta(
-        titulo,
-        cuerpo,
-        categoria=categoria_encontrada,
-        etiquetas=lista_etiquetas,
-    )
-    # El id se asigna recién acá: una pregunta inválida no consume identificadores.
-    pregunta.identificacion = next(_siguiente_id)
-    _preguntas_en_memoria.append(pregunta)
+    try:
+        lista_etiquetas = [obtener_o_crear_etiqueta(n) for n in nombres_etiquetas]
+        pregunta = autor.generarPregunta(
+            titulo,
+            cuerpo,
+            categoria=categoria_encontrada,
+            etiquetas=lista_etiquetas,
+        )
+        # Desde SQLAlchemy 2.0 un objeto nuevo no entra a la sesión "por
+        # arrastre" desde otro: hay que agregarlo explícitamente.
+        db.session.add(pregunta)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise
     return pregunta

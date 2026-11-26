@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from sqlalchemy.orm import reconstructor
+
 from qa_platform.errors import ErrorValidacion
 from qa_platform.extensions import db
 from qa_platform.models.autor import Autor
@@ -29,6 +31,15 @@ class IA(Autor):
         self.modelo: LLM | None = None
         if modelo is not None:
             self.setLLM(modelo)
+
+    @reconstructor
+    def _al_cargar_desde_la_base(self) -> None:
+        """SQLAlchemy NO ejecuta __init__ al leer una fila de la base.
+
+        `modelo` no es una columna (el proveedor LLM es un objeto en memoria),
+        así que hay que inicializarlo acá o el atributo no existiría.
+        """
+        self.modelo = None
 
     def setLLM(self, m: LLM) -> None:
         """Asigna o cambia el proveedor de LLM en tiempo de ejecución."""
