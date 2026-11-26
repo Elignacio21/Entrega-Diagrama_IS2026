@@ -26,6 +26,9 @@ class Respuesta(Publicacion):
     sistema al crearla. Si los datos no son válidos, no se crea y se lanza
     ErrorValidacion con TODOS los errores encontrados.
 
+    esAceptada es de solo lectura: la única forma de aceptarla es
+    marcarAceptada() (o Usuario.aceptarRespuesta(), que valida quién acepta).
+
     Normalmente no se instancia a mano: se crea con Autor.crearRespuesta(),
     que además la registra en la pregunta.
     """
@@ -48,9 +51,31 @@ class Respuesta(Publicacion):
             raise ErrorValidacion(errores)
 
         super().__init__(cuerpo.strip(), fecha)
-        self.esAceptada: bool = False
+        self._esAceptada: bool = False
         self.pregunta = pregunta
         self.autor = autor
+        # Lo asigna el servicio al guardarla (igual que con las preguntas).
+        # Mientras no esté guardada vale None.
+        self.identificacion: int | None = None
+
+    @property
+    def esAceptada(self) -> bool:
+        return self._esAceptada
+
+    def marcarAceptada(self) -> None:
+        """Marca esta respuesta como la aceptada de su pregunta.
+
+        Una pregunta tiene como máximo UNA respuesta aceptada: si ya hay otra,
+        se lanza ErrorValidacion. Aceptar la que ya estaba aceptada no hace
+        nada. Esta regla vive acá (y no solo en Usuario) para que no se pueda
+        saltear por ninguna vía.
+        """
+        aceptada = self.pregunta.respuesta_aceptada
+        if aceptada is not None and aceptada is not self:
+            raise ErrorValidacion(
+                {"respuesta": "La pregunta ya tiene una respuesta aceptada"}
+            )
+        self._esAceptada = True
 
     def __repr__(self):
         return f"<Respuesta de {self.autor!r} a {self.pregunta!r}>"

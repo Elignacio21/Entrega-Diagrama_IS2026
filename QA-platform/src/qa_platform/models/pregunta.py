@@ -57,6 +57,9 @@ class Pregunta(Publicacion):
         for etiqueta in etiquetas:
             self.agregar_etiqueta(etiqueta)
         self._respuestas: list[Respuesta] = []
+        # Lo asigna el servicio al guardarla (igual que con los usuarios).
+        # Mientras no esté guardada vale None.
+        self.identificacion: int | None = None
 
     @staticmethod
     def validar_textos(titulo, cuerpo) -> dict[str, str]:
@@ -103,6 +106,14 @@ class Pregunta(Publicacion):
         Autor.crearRespuesta().
         """
         return tuple(self._respuestas)
+
+    @property
+    def respuesta_aceptada(self) -> Respuesta | None:
+        """La respuesta aceptada de la pregunta, o None si todavía no hay."""
+        for respuesta in self._respuestas:
+            if respuesta.esAceptada:
+                return respuesta
+        return None
 
     def agregar_respuesta(self, respuesta: Respuesta) -> None:
         if not isinstance(respuesta, Respuesta):

@@ -4,13 +4,13 @@ from qa_platform.models.categoria import Categoria
 # categorías de esta lista ("categoría existente"). Cuando haya persistencia
 # pasará a ser una tabla.
 _CATEGORIAS = (
-    Categoria("Programación"),
+    Categoria("Programacion"),
     Categoria("Algoritmos y estructuras de datos"),
     Categoria("Bases de datos"),
     Categoria("Redes"),
     Categoria("Sistemas operativos"),
-    Categoria("Ingeniería de software"),
-    Categoria("Matemática"),
+    Categoria("Ingenieria de software"),
+    Categoria("Matematica"),
     Categoria("Otros"),
 )
 

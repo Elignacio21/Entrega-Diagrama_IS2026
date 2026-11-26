@@ -8,3 +8,10 @@ class ErrorValidacion(Exception):
     def __init__(self, errores: dict[str, str]):
         super().__init__("; ".join(errores.values()))
         self.errores = errores
+
+class ErrorNoEncontrado(Exception):
+    """Un recurso pedido por su identificador no existe (por ejemplo, una pregunta)."""
+
+    def __init__(self, errores: dict[str, str]):
+        super().__init__("; ".join(errores.values()))
+        self.errores = errores
