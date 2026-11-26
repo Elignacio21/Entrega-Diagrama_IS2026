@@ -7,9 +7,6 @@ from qa_platform.services.voto_service import votar_pregunta
 
 preguntas_bp = Blueprint("preguntas", __name__, url_prefix="/api/preguntas")
 
-@preguntas_bp.post("/<int:pregunta_id>/votar")
-def registrar_voto_pregunta(pregunta_id):
-    """Adaptador HTTP para votar una pregunta."""
 
 def _a_diccionario(pregunta) -> dict:
     return {
