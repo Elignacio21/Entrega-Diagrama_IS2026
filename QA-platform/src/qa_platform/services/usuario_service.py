@@ -19,6 +19,17 @@ def listar_usuarios() -> list[Usuario]:
     return list(_usuarios_en_memoria)
 
 
+def buscar_usuario(usuario_id) -> Usuario | None:
+    """Busca un usuario por su identificacion; None si no existe."""
+    # bool es un subtipo de int en Python: True == 1, y no debe valer como id.
+    if isinstance(usuario_id, bool) or not isinstance(usuario_id, int):
+        return None
+    for usuario in _usuarios_en_memoria:
+        if usuario.identificacion == usuario_id:
+            return usuario
+    return None
+
+
 def limpiar_usuarios() -> None:
     """Limpia los datos en memoria."""
     _usuarios_en_memoria.clear()
