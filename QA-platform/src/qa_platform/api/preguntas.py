@@ -9,6 +9,7 @@ preguntas_bp = Blueprint("preguntas", __name__, url_prefix="/api")
 
 def _a_diccionario(pregunta) -> dict:
     return {
+        "identificacion": pregunta.identificacion,
         "titulo": pregunta.titulo,
         "cuerpo": pregunta.cuerpo,
         "fecha": pregunta.fecha.isoformat(),
@@ -53,4 +54,3 @@ def obtener_preguntas():
 @preguntas_bp.get("/categorias")
 def obtener_categorias():
     return {"categorias": [categoria.nombre for categoria in listar_categorias()]}, 200
-    

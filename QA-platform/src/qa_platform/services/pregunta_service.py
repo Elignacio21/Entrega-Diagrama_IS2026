@@ -1,11 +1,13 @@
+from itertools import count
+
 from qa_platform.errors import ErrorValidacion
 from qa_platform.models.etiqueta import Etiqueta
 from qa_platform.models.pregunta import Pregunta
-from qa_platform.models.usuario import Usuario
 from qa_platform.services.catalogo_service import buscar_categoria
-from qa_platform.services.usuario_service import listar_usuarios
+from qa_platform.services.usuario_service import buscar_usuario
 
 _preguntas_en_memoria: list[Pregunta] = []
+_siguiente_id = count(start=1)
 
 
 def listar_preguntas() -> list[Pregunta]:
@@ -13,19 +15,22 @@ def listar_preguntas() -> list[Pregunta]:
     return list(_preguntas_en_memoria)
 
 
-def limpiar_preguntas() -> None:
-    """Limpia los datos en memoria."""
-    _preguntas_en_memoria.clear()
-
-
-def _buscar_autor(autor_id) -> Usuario | None:
+def buscar_pregunta(pregunta_id) -> Pregunta | None:
+    """Busca una pregunta por su identificacion; None si no existe."""
     # bool es un subtipo de int en Python: True == 1, y no debe valer como id.
-    if isinstance(autor_id, bool) or not isinstance(autor_id, int):
+    if isinstance(pregunta_id, bool) or not isinstance(pregunta_id, int):
         return None
-    for usuario in listar_usuarios():
-        if usuario.identificacion == autor_id:
-            return usuario
+    for pregunta in _preguntas_en_memoria:
+        if pregunta.identificacion == pregunta_id:
+            return pregunta
     return None
+
+
+def limpiar_preguntas() -> None:
+    """Limpia los datos en memoria y reinicia los identificadores."""
+    global _siguiente_id
+    _preguntas_en_memoria.clear()
+    _siguiente_id = count(start=1)
 
 
 def _convertir_etiquetas(nombres) -> tuple[list[Etiqueta], str | None]:
@@ -53,14 +58,14 @@ def crear_pregunta(autor_id, titulo, cuerpo, categoria, etiquetas=None) -> Pregu
     - categoria: nombre de una categoría del catálogo.
     - etiquetas: lista de nombres (opcional).
 
-    La fecha de publicación la fija el sistema (el momento de la creación);
-    el cliente no puede elegirla.
+    La fecha de publicación y el identificador los fija el sistema; el
+    cliente no puede elegirlos.
 
     Lanza ErrorValidacion con todos los errores encontrados.
     """
     errores = Pregunta.validar_textos(titulo, cuerpo)
 
-    autor = _buscar_autor(autor_id)
+    autor = buscar_usuario(autor_id)
     if autor is None:
         errores["autor"] = "El usuario no está registrado"
 
@@ -86,5 +91,7 @@ def crear_pregunta(autor_id, titulo, cuerpo, categoria, etiquetas=None) -> Pregu
         categoria=categoria_encontrada,
         etiquetas=lista_etiquetas,
     )
+    # El id se asigna recién acá: una pregunta inválida no consume identificadores.
+    pregunta.identificacion = next(_siguiente_id)
     _preguntas_en_memoria.append(pregunta)
     return pregunta
