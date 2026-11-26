@@ -9,6 +9,9 @@ from qa_platform.models.categoria import Categoria
 from qa_platform.models.etiqueta import Etiqueta
 from qa_platform.models.publicacion import Publicacion
 from qa_platform.models.respuesta import Respuesta
+from qa_platform.models.autor import Autor
+from qa_platform.models.enums import RolUsuario, TipoVoto
+from qa_platform.models.usuario import Usuario
 
 if TYPE_CHECKING:
     # Solo para anotaciones: usuario.py importa a este módulo, y así se evita
